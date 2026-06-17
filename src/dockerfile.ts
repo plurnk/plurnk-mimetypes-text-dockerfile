@@ -15,6 +15,12 @@ import type { MimeSymbol, TreeSitterNode } from "@plurnk/plurnk-mimetypes";
 export function extract(root: TreeSitterNode): MimeSymbol[] {
     const out: MimeSymbol[] = [];
     let stageIndex = 0;
+    // A stage `module` spans its whole BODY (its FROM line to the line before
+    // the next FROM, or EOF) — not just the FROM line — so the references
+    // engine resolves a `COPY --from=…` / `FROM <stage>` ref's container to the
+    // stage it sits in (the source node of the build-graph edge). We patch the
+    // previous stage's endLine when the next FROM opens.
+    let lastStage: MimeSymbol | null = null;
     for (let i = 0; i < root.namedChildCount; i += 1) {
         const child = root.namedChild(i);
         if (!child) continue;
@@ -23,12 +29,14 @@ export function extract(root: TreeSitterNode): MimeSymbol[] {
                 const alias = child.childForFieldName("as");
                 const name = alias ? alias.text : `stage_${stageIndex}`;
                 stageIndex += 1;
-                out.push({
+                if (lastStage) lastStage.endLine = child.startPosition.row; // line before this FROM
+                lastStage = {
                     name,
                     kind: "module",
                     line: child.startPosition.row + 1,
-                    endLine: child.endPosition.row + 1,
-                });
+                    endLine: root.endPosition.row + 1, // final stage runs to EOF until patched
+                };
+                out.push(lastStage);
                 break;
             }
             case "arg_instruction": {
