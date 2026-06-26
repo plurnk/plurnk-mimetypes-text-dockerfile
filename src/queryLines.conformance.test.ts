@@ -2,13 +2,11 @@ import { describe, it } from "node:test";
 import { assertQueryLineConformance } from "@plurnk/plurnk-mimetypes/conformance";
 import Handler from "./TextDockerfile.ts";
 
-// #41: structural matches carry source-line spans (coverage gate).
-const h = new Handler({ mimetype: "text/x-dockerfile", glyph: "🐳", extensions: [".dockerfile", "Dockerfile", "Containerfile"] });
+// #41: BOTH dialects carry real source lines.
+const h = new Handler({"mimetype":"text/x-dockerfile","glyph":"🐳","extensions":[".dockerfile","Dockerfile","Containerfile"]});
+const src = "FROM alpine:3\nRUN echo hi\n";
 
-describe("#41 query-line conformance", () => {
-    it("every structural match carries a source-line span", async () => {
-        await assertQueryLineConformance(h, [
-            { source: "FROM alpine:3\nWORKDIR /app\nRUN echo hi\nCMD [\"sh\"]\n", dialect: "jsonpath", pattern: "$..*" },
-        ]);
-    });
+describe("#41 query-line conformance (both dialects)", () => {
+    it("jsonpath", async () => { await assertQueryLineConformance(h, [{ source: src, dialect: "jsonpath", pattern: "$..*" }]); });
+    it("xpath", async () => { await assertQueryLineConformance(h, [{ source: src, dialect: "xpath", pattern: "//*" }]); });
 });
