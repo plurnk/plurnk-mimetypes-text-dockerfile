@@ -1,6 +1,6 @@
 {
     "name": "@plurnk/plurnk-mimetypes-text-dockerfile",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "text/x-dockerfile mimetype handler for plurnk-service. Tier 2: tree-sitter-dockerfile grammar built to WASM and shipped pre-built in this package.",
     "type": "module",
     "license": "MIT",
@@ -54,7 +54,7 @@
         "web-tree-sitter": "^0.26.9"
     },
     "devDependencies": {
-        "@plurnk/plurnk-mimetypes": "^0.15.34",
+        "@plurnk/plurnk-mimetypes": "0.16.0",
         "@types/node": "^26.0.0",
         "tree-sitter-cli": "^0.26.9",
         "typescript": "^6.0.3"
