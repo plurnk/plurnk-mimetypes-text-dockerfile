@@ -1,4 +1,5 @@
-import type { MimeSymbol, TreeSitterNode } from "@plurnk/plurnk-mimetypes";
+import { treeSitterSpan } from "@plurnk/plurnk-mimetypes";
+import type { TreeSitterNode, TreeSitterSymbolProjection } from "@plurnk/plurnk-mimetypes";
 
 // Dockerfile SPEC §3 mapping for tree-sitter-dockerfile.
 //
@@ -12,15 +13,15 @@ import type { MimeSymbol, TreeSitterNode } from "@plurnk/plurnk-mimetypes";
 // VOLUME, HEALTHCHECK, SHELL, STOPSIGNAL) is not surfaced as a symbol —
 // they're imperative steps with no name to navigate to. The model can
 // still find them via regex or the deep-json channel.
-export function extract(root: TreeSitterNode): MimeSymbol[] {
-    const out: MimeSymbol[] = [];
+export function extract(root: TreeSitterNode): TreeSitterSymbolProjection[] {
+    const out: TreeSitterSymbolProjection[] = [];
     let stageIndex = 0;
     // A stage `module` spans its whole BODY (its FROM line to the line before
     // the next FROM, or EOF) — not just the FROM line — so the references
     // engine resolves a `COPY --from=…` / `FROM <stage>` ref's container to the
     // stage it sits in (the source node of the build-graph edge). We patch the
-    // previous stage's endLine when the next FROM opens.
-    let lastStage: MimeSymbol | null = null;
+    // previous stage's native end boundary when the next FROM opens.
+    let lastStageIndex: number | null = null;
     for (let i = 0; i < root.namedChildCount; i += 1) {
         const child = root.namedChild(i);
         if (!child) continue;
@@ -29,14 +30,19 @@ export function extract(root: TreeSitterNode): MimeSymbol[] {
                 const alias = child.childForFieldName("as");
                 const name = alias ? alias.text : `stage_${stageIndex}`;
                 stageIndex += 1;
-                if (lastStage) lastStage.endLine = child.startPosition.row; // line before this FROM
-                lastStage = {
+                if (lastStageIndex !== null) {
+                    const previous = out[lastStageIndex];
+                    out[lastStageIndex] = {
+                        ...previous,
+                        span: treeSitterSpan(previous.span.startNode, child, "start"),
+                    };
+                }
+                lastStageIndex = out.length;
+                out.push({
                     name,
                     kind: "module",
-                    line: child.startPosition.row + 1,
-                    endLine: root.endPosition.row + 1, // final stage runs to EOF until patched
-                };
-                out.push(lastStage);
+                    span: treeSitterSpan(child, root),
+                });
                 break;
             }
             case "arg_instruction": {
@@ -45,8 +51,7 @@ export function extract(root: TreeSitterNode): MimeSymbol[] {
                     out.push({
                         name: nameNode.text,
                         kind: "constant",
-                        line: child.startPosition.row + 1,
-                        endLine: child.endPosition.row + 1,
+                        span: treeSitterSpan(child),
                     });
                 }
                 break;
@@ -60,8 +65,7 @@ export function extract(root: TreeSitterNode): MimeSymbol[] {
                         out.push({
                             name: nameNode.text,
                             kind: "constant",
-                            line: pair.startPosition.row + 1,
-                            endLine: pair.endPosition.row + 1,
+                            span: treeSitterSpan(pair),
                         });
                     }
                 }
@@ -76,8 +80,7 @@ export function extract(root: TreeSitterNode): MimeSymbol[] {
                         out.push({
                             name: stripQuotes(keyNode.text),
                             kind: "constant",
-                            line: pair.startPosition.row + 1,
-                            endLine: pair.endPosition.row + 1,
+                            span: treeSitterSpan(pair),
                         });
                     }
                 }

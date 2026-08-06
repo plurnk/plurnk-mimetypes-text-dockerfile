@@ -53,8 +53,13 @@ export default class DockerfileRefsQuery implements RefsQuery {
             if (c.name === "copy.from" && c.node.text.startsWith(FROM_FLAG)) {
                 const value = c.node.text.slice(FROM_FLAG.length);
                 if (value.length === 0) continue;
+                if (c.node.startIndex === undefined || c.node.endIndex === undefined) {
+                    throw new Error("Dockerfile reference capture lacks native source offsets");
+                }
                 const node: RefsCaptureNode = {
                     text: value,
+                    startIndex: c.node.startIndex + FROM_FLAG.length,
+                    endIndex: c.node.endIndex,
                     startPosition: {
                         row: c.node.startPosition.row,
                         column: c.node.startPosition.column + FROM_FLAG.length,

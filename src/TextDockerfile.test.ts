@@ -116,3 +116,31 @@ describe("TextDockerfile — deep-json channel", () => {
         assert.ok(Array.isArray(tree.children));
     });
 });
+
+describe("TextDockerfile — parser coordinates", () => {
+    it("materializes native spans across LF and CRLF with Unicode at the terminal boundary", async () => {
+        const firstLine = "FROM node:22 AS first";
+        const tail = "FROM first AS second\nRUN echo \"😀e\u0301\"";
+        for (const separator of ["\n", "\r\n"]) {
+            const symbols = await h().extractRaw(`${firstLine}${separator}${tail}`);
+            const first = symbols.find((symbol) => symbol.name === "first");
+            const second = symbols.find((symbol) => symbol.name === "second");
+            assert.deepEqual(first && {
+                line: first.line,
+                column: first.column,
+                endLine: first.endLine,
+                endColumn: first.endColumn,
+            }, { line: 1, column: 1, endLine: 2, endColumn: 1 });
+            assert.deepEqual(second && {
+                line: second.line,
+                column: second.column,
+                endLine: second.endLine,
+                endColumn: second.endColumn,
+            }, { line: 2, column: 1, endLine: 3, endColumn: 15 });
+        }
+    });
+
+    it("does not fabricate symbols when the Docker grammar rejects CR-only records", async () => {
+        assert.deepEqual(await h().extractRaw("FROM node:22 AS first\rFROM first AS second"), []);
+    });
+});

@@ -68,4 +68,28 @@ describe("TextDockerfile — references (build graph)", () => {
         // Only the base-image use; no joins, no crash.
         assert.deepEqual(refs.map((r) => r.name), ["alpine"]);
     });
+
+    it("lifted --from refs use native indexes across preceding Unicode", async () => {
+        const prefix = "COPY --chown=😀 --from=";
+        const refs = await h().references([
+            "FROM node AS builder",
+            "FROM alpine AS runtime",
+            `${prefix}builder /src /dest`,
+        ].join("\n") + "\n");
+        const ref = refs.find((candidate) => candidate.name === "builder"
+            && candidate.container === "runtime");
+        const expectedColumn = Array.from(prefix).length + 1;
+        assert.ok(ref);
+        assert.deepEqual({
+            line: ref.line,
+            column: ref.column,
+            endLine: ref.endLine,
+            endColumn: ref.endColumn,
+        }, {
+            line: 3,
+            column: expectedColumn,
+            endLine: 3,
+            endColumn: expectedColumn + "builder".length,
+        });
+    });
 });
