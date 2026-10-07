@@ -31,3 +31,8 @@ Validated against real-world Dockerfiles including BuildKit syntax. The grammar 
 ## license
 
 MIT.
+
+## Versioning
+
+This package versions independently. Compatibility is declared by its dependency
+ranges; a Plurnk release does not require a release of this package.
